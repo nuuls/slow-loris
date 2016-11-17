@@ -5,10 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"net"
+	"regexp"
 	"time"
 
 	"github.com/nuuls/log"
 )
+
+var re = regexp.MustCompile(`(?:http(?:s))?([\w\-\.]+\.\w+)(?:[\/$])?`)
 
 func main() {
 	log.AddLogger(log.DefaultLogger)
@@ -17,8 +20,12 @@ func main() {
 	https := flag.Bool("https", true, "using https")
 	threads := flag.Int("threads", 500, "concurrent connections")
 	flag.Parse()
+	u := *url
+	if m := re.FindStringSubmatch(*url); len(m) > 1 {
+		u = m[1]
+	}
 	for i := 0; i < *threads; i++ {
-		go openConn(*url, *port, *https)
+		go openConn(u, *port, *https)
 	}
 	<-make(chan struct{})
 }
@@ -26,6 +33,7 @@ func main() {
 func openConn(addr string, port int, https bool) {
 	defer openConn(addr, port, https)
 	url := fmt.Sprintf("%s:%d", addr, port)
+	log.Info("opening connection to", url)
 	var conn net.Conn
 	var err error
 	if https {
